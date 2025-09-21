@@ -16,13 +16,13 @@ load_dotenv()
 
 api_key = os.getenv("GOOGLE_API_KEY")
 
-employee_id = "675f2157bcc74df286eeecf78fbbee0b"  
+employee_id = "7c6a1d5099cc48629141f6139724ff6d"  
 
 pasta = Path("arquivos")
 docs = []
 
 
-arquivos_employee = [f for f in pasta.glob("*employee*")]
+arquivos_employee = [f for f in pasta.glob(f"*{employee_id}*")]
 llm = ChatGoogleGenerativeAI(
     model="gemini-2.5-flash",
     temperature=0.0,

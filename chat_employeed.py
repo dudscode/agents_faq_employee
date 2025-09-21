@@ -1,5 +1,5 @@
 import streamlit as st
-from streamlit_chat import message
+from streamlit_chatbox import ChatBox
 from agentes.agente_employee import invoke_llm
 
 questions = [
@@ -18,6 +18,16 @@ answer_vars = [
     "more_info"
 ]
 
+st.title("Chat Employee FAQ")
+
+chat_box = ChatBox(
+    use_rich_markdown=True,
+    user_theme="green",
+    assistant_theme="blue",
+)
+chat_box.init_session()
+
+chat_box.output_messages()
 
 if "step" not in st.session_state:
     st.session_state.step = 0
@@ -27,70 +37,41 @@ for var in answer_vars:
     if var not in st.session_state:
         st.session_state[var] = ""
 
+if len(chat_box.history) == 0:
+    chat_box.ai_say(questions[0])
 
-def next_question(user_input):
-    print(f"User input: {user_input}")
-    if user_input:
-        st.session_state.answers.append(user_input)
+if st.session_state.step < len(questions):
+    if query := st.chat_input(questions[st.session_state.step]):
+        chat_box.user_say(query)
+        st.session_state.answers.append(query)
         var_name = answer_vars[st.session_state.step]
-        st.session_state[var_name] = user_input
+        st.session_state[var_name] = query
         st.session_state.step += 1
+        # Mostra próxima pergunta, se houver
+        if st.session_state.step < len(questions):
+            chat_box.ai_say(questions[st.session_state.step])
+        st.rerun()
+else:
+    if "employee_id" not in st.session_state or st.session_state["employee_id"] is None:
+        loader_placeholder = st.empty()
+        loader_placeholder.info("Processando suas respostas... ⏳")
+        st.session_state["employee_id"] = invoke_llm(
+            st.session_state.company_name,
+            st.session_state.differential,
+            st.session_state.main_goal,
+            st.session_state.contact_info,
+            st.session_state.more_info
+        )
+        loader_placeholder.empty()
+        chat_box.ai_say("Obrigado por compartilhar essas informações!")
+        chat_box.ai_say(f"Aqui está o ID da sua empresa gerada: {st.session_state['employee_id']}")
+        chat_box.ai_say("Se quiser reiniciar o chat, clique no botão abaixo.")
 
-
-def restart_chat():
-    st.session_state.step = 0
-    st.session_state.answers = []
-    for var in answer_vars:
-        st.session_state[var] = ""
-    st.session_state["employee_id"] = None
-
-
-chat_container = st.container()
-
-with chat_container:
-
-    for i, ans in enumerate(st.session_state.answers):
-        message(questions[i], is_user=False, key=f"bot_{i}")
-        message(ans, is_user=True, key=f"user_{i}")
-
-
-    if st.session_state.step < len(questions):
-        current_question = questions[st.session_state.step]
-        message(current_question, is_user=False, key=f"bot_current_{st.session_state.step}")
-
-
-        col1, col2 = st.columns([4,1])
-
-        with col1:
-            if st.session_state.step == len(questions) - 1:
-                user_input = st.text_area("Sua resposta:", key=f"input_{st.session_state.step}", height=100)
-            else:
-                user_input = st.text_input("Sua resposta:", key=f"input_{st.session_state.step}")
-
-        with col2:
-            st.write("") 
-            st.write("")
-            if st.button("Enviar", key=f"button_{st.session_state.step}"):
-                next_question(st.session_state[f"input_{st.session_state.step}"])
-                st.rerun()
-
-    else:
-        if "employee_id" not in st.session_state or st.session_state["employee_id"] is None:
-            loader_placeholder = st.empty()
-            loader_placeholder.info("Processando suas respostas... ⏳")
-            st.session_state["employee_id"] = invoke_llm(
-                st.session_state.company_name,
-                st.session_state.differential,
-                st.session_state.main_goal,
-                st.session_state.contact_info,
-                st.session_state.more_info
-            )
-            loader_placeholder.empty()
-        message("Obrigado por compartilhar essas informações!", is_user=False, key="final_bot")
-        st.write("Aqui está ID da sua empresa gerada:")
-        st.write(st.session_state["employee_id"])
-        st.write("Se quiser reiniciar o chat, clique no botão abaixo:")
-        if st.button("Reiniciar chat"):
-            restart_chat()
-            chat_container.empty()
-            st.rerun()
+    if st.button("Reiniciar chat"):
+        st.session_state.step = 0
+        st.session_state.answers = []
+        for var in answer_vars:
+            st.session_state[var] = ""
+        st.session_state["employee_id"] = None
+        chat_box.init_session(clear=True)
+        st.rerun()
